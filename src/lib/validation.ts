@@ -61,7 +61,7 @@ const imageUrl = z
   .string()
   .trim()
   .refine(isAllowedImageUrl, {
-    message: `Use an uploaded image (/media/…) or an https URL from: ${allowedImageHosts().join(", ")}`,
+    message: `Use an uploaded image (/media/…), a bundled image (/images/…) or an https URL from: ${allowedImageHosts().join(", ")}`,
   });
 
 // ─── Public forms ──────────────────────────────────────────────────────────────

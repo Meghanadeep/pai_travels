@@ -11,7 +11,7 @@ import { BookingError, updateInquiryStatus } from "@/lib/bookings";
 import { prisma } from "@/lib/db";
 import { slugify } from "@/lib/format";
 import { rateLimit } from "@/lib/rate-limit";
-import { IMAGE_TYPES, MAX_UPLOAD_BYTES, sniffImageType, uploadDir } from "@/lib/uploads";
+import { IMAGE_TYPES, MAX_UPLOAD_BYTES, assertUploadsSupported, sniffImageType, uploadDir } from "@/lib/uploads";
 import {
   departureSchema,
   faqSchema,
@@ -125,6 +125,7 @@ export async function setTripStatus(tripId: string, _prev: FormState, formData: 
 // ─── Images ────────────────────────────────────────────────────────────────────
 
 async function saveUpload(file: File): Promise<string> {
+  assertUploadsSupported();
   if (file.size > MAX_UPLOAD_BYTES) throw new Error("Images must be 5 MB or smaller.");
   const buf = Buffer.from(await file.arrayBuffer());
   const type = sniffImageType(buf);

@@ -25,3 +25,13 @@ export function sniffImageType(buf: Buffer): string | null {
   if (buf.toString("ascii", 4, 12) === "ftypavif") return "image/avif";
   return null;
 }
+
+/**
+ * Serverless hosts (Vercel) have no persistent disk, so saved files would vanish.
+ * Refuse uploads there with a clear message instead of failing obscurely.
+ */
+export function assertUploadsSupported() {
+  if (process.env.VERCEL && !process.env.UPLOAD_DIR) {
+    throw new Error("File uploads aren't available on this hosting (no permanent storage). Use an image URL instead, or host the site with a persistent disk.");
+  }
+}

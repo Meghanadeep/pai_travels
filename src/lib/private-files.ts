@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { copyFile, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { IMAGE_TYPES, sniffImageType, uploadDir } from "./uploads";
+import { IMAGE_TYPES, assertUploadsSupported, sniffImageType, uploadDir } from "./uploads";
 
 // Imported originals and past-trip photos live under UPLOAD_DIR/private/. The
 // public /media route only serves flat file names in UPLOAD_DIR, so nothing here
@@ -25,6 +25,7 @@ function newName(ext: string) {
 
 /** Validates the bytes and stores them. Returns the stored name and metadata. */
 export async function savePrivateImage(kind: PrivateKind, buf: Buffer, maxBytes: number) {
+  assertUploadsSupported();
   if (buf.length > maxBytes) throw new Error(`Images must be ${Math.round(maxBytes / 1024 / 1024)} MB or smaller.`);
   const mimeType = sniffImageType(buf);
   if (!mimeType) throw new Error("Upload a JPEG, PNG, WebP or AVIF image.");

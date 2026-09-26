@@ -9,9 +9,9 @@ export function allowedImageHosts() {
   return [...new Set([...DEFAULT_IMAGE_HOSTS, ...extra])];
 }
 
-/** Accepts uploaded files served from /media/… or https URLs on an allowed host. */
+/** Accepts uploaded files (/media/…), images bundled in public/images/…, or https URLs on an allowed host. */
 export function isAllowedImageUrl(value: string) {
-  if (/^\/media\/[\w\-./]+$/.test(value) && !value.includes("..")) return true;
+  if (/^\/(media|images)\/[\w\-./]+$/.test(value) && !value.includes("..")) return true;
   try {
     const url = new URL(value);
     return url.protocol === "https:" && allowedImageHosts().includes(url.hostname.toLowerCase());
