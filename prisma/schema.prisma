@@ -1,0 +1,292 @@
+// Pai Travels — data model
+// A Trip (travel plan) is separate from its Departures (dated, priced instances).
+// Booking inquiries attach to a specific departure and hold seats while active.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TripStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TripType {
+  HERITAGE
+  NATURE
+  ADVENTURE
+  WELLNESS
+  COASTAL
+  CULINARY
+}
+
+enum DepartureStatus {
+  OPEN // accepting inquiries while seats remain and start date is in the future
+  CLOSED // manually closed by admin
+  CANCELLED // departure will not run
+}
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  CONFIRMED
+  DECLINED
+  CANCELLED
+}
+
+enum MessageStatus {
+  NEW
+  READ
+  ARCHIVED
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Trip {
+  id                 String     @id @default(cuid())
+  slug               String     @unique
+  title              String
+  destination        String // e.g. "Kerala"
+  country            String
+  tripType           TripType
+  status             TripStatus @default(DRAFT)
+  featured           Boolean    @default(false)
+  // Marks placeholder content created by the seed script so it is labelled on the site.
+  isSample           Boolean    @default(false)
+  summary            String // one or two sentences for cards and meta descriptions
+  overview           String
+  highlights         String[]
+  accommodation      String
+  transport          String
+  meals              String
+  inclusions         String[]
+  exclusions         String[]
+  meetingPoint       String
+  cancellationPolicy String
+  requirements       String // visas, fitness, documents, vaccinations etc.
+  durationDays       Int
+  groupSizeMin       Int        @default(1)
+  groupSizeMax       Int? // null = no stated maximum
+  // Package pricing for trips sold on any date rather than fixed departures.
+  priceFrom          Int? // per person, whole currency units; shown when no departure is open
+  priceNote          String? // e.g. "₹19,200 with 3★ deluxe hotels · GST 5% extra"
+  validUntil         DateTime?  @db.Date // package offer ends; hidden from the site afterwards
+  coverImageUrl      String
+  coverImageAlt      String
+  contactEmail       String?
+  contactPhone       String?
+  seoTitle           String?
+  seoDescription     String?
+  publishedAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  images     TripImage[]
+  itinerary  ItineraryDay[]
+  faqs       TripFaq[]
+  departures Departure[]
+  inquiries  Inquiry[]
+  reviews    Review[]
+
+  @@index([status, tripType])
+  @@index([destination])
+}
+
+model TripImage {
+  id        String @id @default(cuid())
+  tripId    String
+  url       String
+  alt       String
+  sortOrder Int    @default(0)
+  trip      Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, sortOrder])
+}
+
+model ItineraryDay {
+  id          String  @id @default(cuid())
+  tripId      String
+  dayNumber   Int
+  title       String
+  description String
+  meals       String?
+  overnight   String?
+  trip        Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, dayNumber])
+}
+
+model TripFaq {
+  id        String @id @default(cuid())
+  tripId    String
+  question  String
+  answer    String
+  sortOrder Int    @default(0)
+  trip      Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, sortOrder])
+}
+
+model Departure {
+  id               String          @id @default(cuid())
+  tripId           String
+  startDate        DateTime        @db.Date
+  endDate          DateTime        @db.Date
+  price            Int // per person, whole currency units
+  capacity         Int // total seats offered on this departure
+  seatsReserved    Int             @default(0) // seats held by active inquiries (NEW/CONTACTED/CONFIRMED)
+  status           DepartureStatus @default(OPEN)
+  earlyBirdPrice   Int?
+  earlyBirdEndsAt  DateTime?       @db.Date
+  note             String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  trip             Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  inquiries        Inquiry[]
+
+  @@index([tripId, startDate])
+  @@index([startDate, status])
+}
+
+model Inquiry {
+  id                  String        @id @default(cuid())
+  reference           String        @unique
+  tripId              String
+  departureId         String
+  travellers          Int
+  fullName            String
+  email               String
+  phone               String
+  country             String?
+  message             String?
+  pricePerPerson      Int // price quoted at the time of inquiry
+  status              InquiryStatus @default(NEW)
+  // True while this inquiry's travellers are counted in Departure.seatsReserved
+  holdsSeats          Boolean       @default(true)
+  adminNotes          String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  trip                Trip          @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  departure           Departure     @relation(fields: [departureId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([departureId])
+}
+
+model ContactMessage {
+  id        String        @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    MessageStatus @default(NEW)
+  createdAt DateTime      @default(now())
+}
+
+// ─── Past trips ────────────────────────────────────────────────────────────────
+// Travel history, kept apart from bookable Trips. A past trip never has
+// departures and is never offered for booking.
+
+model PastTrip {
+  id            String     @id @default(cuid())
+  slug          String     @unique
+  title         String
+  destination   String
+  country       String?
+  startDate     DateTime?  @db.Date
+  endDate       DateTime?  @db.Date
+  dateText      String? // when exact dates aren't known, e.g. "September 2026"
+  durationText  String? // e.g. "4 nights / 5 days"
+  summary       String
+  description   String
+  places        String[]
+  itinerary     String? // free text, one day or stop per line
+  accommodation String?
+  activities    String[]
+  priceNote     String? // price at the time, as advertised
+  status        TripStatus @default(DRAFT)
+  publishedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  photos  PastTripPhoto[]
+  imports TripImport[]
+
+  @@index([status, startDate])
+}
+
+// Stored privately. Served publicly only once approved (which requires the
+// admin to confirm they have the right to use it) and the trip is published.
+model PastTripPhoto {
+  id             String    @id @default(cuid())
+  pastTripId     String
+  fileName       String // under UPLOAD_DIR/private/photos
+  alt            String    @default("")
+  sortOrder      Int       @default(0)
+  approvedAt     DateTime?
+  rightsNote     String? // who holds the rights, recorded at approval
+  sourceImportId String?
+  createdAt      DateTime  @default(now())
+  pastTrip       PastTrip  @relation(fields: [pastTripId], references: [id], onDelete: Cascade)
+
+  @@index([pastTripId, sortOrder])
+}
+
+enum ImportStatus {
+  PENDING // uploaded, not yet read
+  PROCESSING
+  READY // extracted, awaiting review
+  FAILED
+  SAVED // applied to a past trip
+  DISCARDED
+}
+
+// One uploaded photo or screenshot. The original file is kept for reference.
+model TripImport {
+  id           String       @id @default(cuid())
+  fileName     String // under UPLOAD_DIR/private/imports
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  sha256       String
+  status       ImportStatus @default(PENDING)
+  extraction   Json? // raw structured output from the vision model
+  model        String?
+  error        String?
+  extractedAt  DateTime?
+  pastTripId   String?
+  savedAt      DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  pastTrip     PastTrip?    @relation(fields: [pastTripId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([sha256])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  rating    Int
+  body      String
+  tripId    String?
+  published Boolean  @default(true)
+  isSample  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  trip      Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+}
