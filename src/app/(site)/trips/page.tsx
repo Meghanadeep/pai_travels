@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { NorthSikkimPromo } from "@/components/north-sikkim-promo";
 import { TripCard } from "@/components/trip-card";
 import { EmptyState } from "@/components/ui";
 import { toDateInput, tripTypeLabels, formatPrice } from "@/lib/format";
@@ -108,7 +109,11 @@ export default async function TripsPage({ searchParams }: PageProps<"/trips">) {
         </p>
       </header>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[17rem_1fr]">
+      <div className="mt-10">
+        <NorthSikkimPromo />
+      </div>
+
+      <div className="mt-12 grid gap-10 lg:grid-cols-[17rem_1fr]">
         <aside>
           <details className="group border border-line p-5 lg:hidden">
             <summary className="flex cursor-pointer list-none items-center justify-between">
